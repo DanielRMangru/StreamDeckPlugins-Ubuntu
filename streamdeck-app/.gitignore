@@ -1,0 +1,10 @@
+.venv/
+__pycache__/
+*.pyc
+.qwen/
+.agents/
+.gemini/
+.vscode/
+.idea/
+*.log
+plugins/__pycache__/

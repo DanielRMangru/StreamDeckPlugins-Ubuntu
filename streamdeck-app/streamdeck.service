@@ -1,0 +1,14 @@
+[Unit]
+Description=Stream Deck+ Configuration Server and Daemon
+After=network.target sound.target
+
+[Service]
+Type=simple
+WorkingDirectory=/home/daniel/Apps/StreamDeckPlugins-Ubuntu/streamdeck-app
+ExecStart=/home/daniel/Apps/StreamDeckPlugins-Ubuntu/streamdeck-app/.venv/bin/python3 app.py
+Restart=on-failure
+Environment=PYTHONUNBUFFERED=1
+Environment=DISPLAY=:0
+
+[Install]
+WantedBy=default.target

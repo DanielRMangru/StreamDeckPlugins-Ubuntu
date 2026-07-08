@@ -85,6 +85,8 @@ header {
     border: 1px solid var(--border-color);
     border-radius: 16px;
     margin-bottom: 20px;
+    position: relative;
+    z-index: 100;
 }
 
 .logo {
@@ -177,6 +179,41 @@ header {
     box-shadow: 0 0 8px rgba(59, 130, 246, 0.25);
 }
 
+/* Filter Tabs */
+.filter-tabs {
+    display: flex;
+    background: rgba(0, 0, 0, 0.2);
+    padding: 4px;
+    border-radius: 12px;
+    border: 1px solid var(--border-color);
+    gap: 4px;
+}
+
+.filter-tab {
+    flex: 1;
+    background: transparent;
+    border: none;
+    color: var(--text-secondary);
+    padding: 8px 12px;
+    font-size: 0.8rem;
+    font-weight: 600;
+    border-radius: 8px;
+    cursor: pointer;
+    transition: all 0.2s ease;
+    text-align: center;
+}
+
+.filter-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.03);
+}
+
+.filter-tab.active {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    color: white;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.25);
+}
+
 .plugins-list {
     flex: 1;
     overflow-y: auto;
@@ -204,6 +241,7 @@ header {
     transition: all 0.2s cubic-bezier(0.4, 0, 0.2, 1);
     position: relative;
     overflow: hidden;
+    flex-shrink: 0;
 }
 
 .plugin-card:hover {
@@ -267,6 +305,7 @@ header {
 /* Workspace / Stream Deck Mockup */
 .workspace {
     display: flex;
+    flex-direction: column;
     justify-content: center;
     align-items: center;
     background: var(--card-bg);
@@ -275,6 +314,7 @@ header {
     border-radius: 24px;
     padding: 40px;
     min-height: 0;
+    gap: 20px;
 }
 
 .deck-mockup {
@@ -605,4 +645,297 @@ header {
 
 .save-settings-btn:hover {
     opacity: 0.9;
+}
+
+/* Responsive Layout Adjustments */
+@media (max-width: 1024px) {
+    .app-container {
+        height: auto;
+        min-height: 100vh;
+        overflow-y: auto;
+    }
+    
+    .main-layout {
+        grid-template-columns: 1fr;
+        grid-template-rows: auto auto;
+        height: auto;
+    }
+    
+    .sidebar {
+        height: 500px;
+    }
+    
+    .workspace {
+        padding: 30px 15px;
+    }
+}
+
+@media (max-width: 768px) {
+    .app-container {
+        padding: 10px;
+    }
+    
+    header {
+        flex-direction: column;
+        gap: 12px;
+        align-items: flex-start;
+        padding: 15px;
+    }
+    
+    .device-status {
+        width: 100%;
+        justify-content: center;
+    }
+    
+    .deck-mockup {
+        padding: 20px;
+        gap: 15px;
+    }
+    
+    .key-grid {
+        gap: 10px;
+    }
+    
+    .lcd-strip {
+        height: 60px;
+    }
+    
+    .dial-row {
+        gap: 10px;
+    }
+    
+    .dial-knob {
+        width: 45px;
+        height: 45px;
+    }
+    
+    .settings-panel {
+        width: 100%;
+        padding: 20px;
+    }
+}
+
+/* Page Navigation and Controls Styling */
+.workspace-header {
+    width: 100%;
+    max-width: 680px;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    background: rgba(15, 23, 42, 0.4);
+    backdrop-filter: blur(10px);
+    padding: 10px 20px;
+    border-radius: 16px;
+    border: 1px solid var(--border-color);
+}
+
+.page-tabs {
+    display: flex;
+    gap: 8px;
+    align-items: center;
+    flex-wrap: wrap;
+}
+
+.page-tab {
+    background: rgba(255, 255, 255, 0.02);
+    border: 1px solid var(--border-color);
+    color: var(--text-secondary);
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    display: flex;
+    align-items: center;
+    gap: 8px;
+    transition: all 0.2s ease;
+}
+
+.page-tab:hover {
+    color: var(--text-primary);
+    background: rgba(255, 255, 255, 0.05);
+    border-color: rgba(255, 255, 255, 0.15);
+}
+
+.page-tab.active {
+    background: rgba(59, 130, 246, 0.12);
+    color: #60a5fa;
+    border-color: rgba(59, 130, 246, 0.35);
+    box-shadow: 0 0 12px rgba(59, 130, 246, 0.1);
+}
+
+.page-tab .delete-page-btn {
+    color: var(--text-muted);
+    font-size: 16px;
+    cursor: pointer;
+    display: inline-flex;
+    align-items: center;
+    justify-content: center;
+    border-radius: 50%;
+    width: 16px;
+    height: 16px;
+    transition: all 0.15s ease;
+    margin-left: 2px;
+}
+
+.page-tab .delete-page-btn:hover {
+    background: #ef4444;
+    color: white;
+}
+
+.add-page-btn {
+    background: linear-gradient(135deg, var(--accent-blue), var(--accent-purple));
+    border: none;
+    color: white;
+    padding: 8px 16px;
+    border-radius: 10px;
+    font-size: 0.85rem;
+    font-weight: 600;
+    cursor: pointer;
+    transition: opacity 0.2s ease, transform 0.1s ease;
+    box-shadow: 0 4px 12px rgba(59, 130, 246, 0.2);
+}
+
+.add-page-btn:hover {
+    opacity: 0.95;
+    transform: translateY(-1px);
+}
+
+.add-page-btn:active {
+    transform: translateY(0);
+}
+
+/* Header Actions & Global Styles Dropdown Popover */
+.header-actions {
+    display: flex;
+    align-items: center;
+    gap: 16px;
+}
+
+.styles-dropdown-container {
+    position: relative;
+}
+
+.settings-gear-btn {
+    background: none;
+    border: none;
+    color: var(--text-secondary);
+    cursor: pointer;
+    padding: 8px;
+    border-radius: 50%;
+    transition: all 0.2s ease;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+}
+
+.settings-gear-btn:hover {
+    background: rgba(255, 255, 255, 0.05);
+    color: var(--accent-blue);
+}
+
+.settings-gear-btn.active {
+    color: var(--accent-blue);
+}
+
+.settings-gear-btn.active svg {
+    transform: rotate(45deg);
+}
+
+.settings-gear-btn svg {
+    width: 20px;
+    height: 20px;
+    transition: transform 0.3s ease;
+}
+
+.global-styles-dropdown {
+    position: absolute;
+    top: calc(100% + 12px);
+    right: 0;
+    width: 280px;
+    background: rgba(15, 23, 42, 0.95);
+    border: 1px solid var(--border-color);
+    border-radius: 16px;
+    padding: 20px;
+    box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.4), 0 8px 10px -6px rgba(0, 0, 0, 0.4);
+    backdrop-filter: blur(16px);
+    z-index: 1000;
+    display: flex;
+    flex-direction: column;
+    gap: 14px;
+    transform-origin: top right;
+    transition: opacity 0.2s ease, transform 0.2s ease;
+}
+
+.global-styles-dropdown.collapsed {
+    opacity: 0;
+    transform: scale(0.95);
+    pointer-events: none;
+    display: none;
+}
+
+.global-styles-dropdown h3 {
+    font-size: 0.95rem;
+    font-weight: 700;
+    color: var(--text-primary);
+    margin-bottom: 2px;
+}
+
+.style-row {
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
+}
+
+.style-row h4 {
+    font-size: 0.8rem;
+    color: var(--accent-blue);
+    font-weight: 700;
+    text-transform: uppercase;
+    letter-spacing: 0.5px;
+    margin-bottom: 2px;
+}
+
+.style-field {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    gap: 8px;
+}
+
+.style-field label {
+    font-size: 0.75rem;
+    color: var(--text-secondary);
+    font-weight: 500;
+}
+
+.style-field input[type="color"] {
+    border: 1px solid var(--border-color);
+    background: none;
+    width: 40px;
+    height: 24px;
+    padding: 0;
+    cursor: pointer;
+    border-radius: 6px;
+}
+
+.style-field select, .style-field input[type="number"] {
+    padding: 4px 8px;
+    background: rgba(0, 0, 0, 0.4);
+    border: 1px solid var(--border-color);
+    border-radius: 8px;
+    color: var(--text-primary);
+    font-size: 0.75rem;
+    width: 110px;
+    outline: none;
+}
+
+.style-field select:focus, .style-field input[type="number"]:focus {
+    border-color: var(--accent-blue);
+}
+
+.style-divider {
+    height: 1px;
+    background: var(--border-color);
+    margin: 4px 0;
 }

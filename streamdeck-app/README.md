@@ -2,9 +2,27 @@
 
 A python-based web application and daemon for managing the Elgato Stream Deck+ on Linux (Ubuntu 24.04). Features a dynamic drag-and-drop web configuration dashboard, an extensible plugin framework, and thread-safe hardware drivers.
 
+## User Interface
+
+Below are screenshots of the drag-and-drop web configuration dashboard at various viewport sizes:
+
+### Desktop View
+![Desktop View](screenshots/fullscreen.png)
+
+### Tablet View
+![Tablet View](screenshots/tablet.png)
+
+### Mobile View
+![Mobile View](screenshots/mobile.png)
+
 ## Features
 
 - **Stunning Web UI**: Drag-and-drop plugins directly onto a visual Stream Deck+ layout (8 keys, LCD touchscreen, 4 dials).
+- **Multi-Page Configuration**: Add, switch, or delete multiple pages of plugin layouts via the dashboard page tabs. Navigate pages on the hardware by swiping left/right on the LCD touchscreen strip (displays active page dots indicators at the bottom center of the LCD).
+- **Global Style Customizations**: Personalize button keys and touchscreen strip segments. Customize background colors, font families, font sizes, button label positions (top/middle/bottom), and dial positions (left/center/right) via a gear settings dropdown in the upper right header. Stylings apply in real time to both the Web mockup and the physical Stream Deck+ hardware displays.
+- **Unassigned Slot Placeholders**: Draw helpful placeholder labels ("Key n Unassigned" and "Dial n Unassigned") with thin border lines on empty physical keys and dials so you always know what key is which.
+- **Responsive Layout**: Adapts dynamically to desktop, tablet, and mobile screens. Plugin cards are protected against vertical squishing, and the configuration workspace adjusts gracefully for all viewport sizes.
+- **Plugin Type Filtering**: Search and filter plugins by target controls (Buttons, Dials, Both, or All) to quickly find compatible plugins.
 - **Extensible Plugin Framework**: Easily build custom controls for keys or dials/screen zones.
 - **Out-of-the-box Controls**:
   - **Clock & Date**: Time display with press-to-toggle date view.

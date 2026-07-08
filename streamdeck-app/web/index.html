@@ -18,9 +18,83 @@
             <div class="logo">
                 <span class="gradient-text">Stream Deck+</span> Configurator
             </div>
-            <div class="device-status" id="device-status">
-                <span class="status-indicator disconnect"></span>
-                <span class="status-text">Checking device...</span>
+            <div class="header-actions">
+                <div class="device-status" id="device-status">
+                    <span class="status-indicator disconnect"></span>
+                    <span class="status-text">Checking device...</span>
+                </div>
+                
+                <div class="styles-dropdown-container">
+                    <button class="settings-gear-btn" id="styles-menu-btn" title="Global Styles">
+                        <svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round">
+                            <circle cx="12" cy="12" r="3"></circle>
+                            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 1 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 1 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 1 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 1 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z"></path>
+                        </svg>
+                    </button>
+                    
+                    <div class="global-styles-dropdown collapsed" id="styles-content-panel">
+                        <h3>Global Styles</h3>
+                        <div class="style-row">
+                            <h4>Buttons</h4>
+                            <div class="style-field">
+                                <label>Background</label>
+                                <input type="color" id="style-key-bg" value="#0f172a">
+                            </div>
+                            <div class="style-field">
+                                <label>Font Family</label>
+                                <select id="style-key-font">
+                                    <option value="Outfit">Outfit</option>
+                                    <option value="Inter">Inter</option>
+                                    <option value="Roboto">Roboto</option>
+                                    <option value="Arial">Arial</option>
+                                </select>
+                            </div>
+                            <div class="style-field">
+                                <label>Font Size (px)</label>
+                                <input type="number" id="style-key-size" value="12" min="8" max="24">
+                            </div>
+                            <div class="style-field">
+                                <label>Label Position</label>
+                                <select id="style-key-pos">
+                                    <option value="top">Top</option>
+                                    <option value="middle">Middle</option>
+                                    <option value="bottom">Bottom</option>
+                                </select>
+                            </div>
+                        </div>
+                        
+                        <div class="style-divider"></div>
+                        
+                        <div class="style-row">
+                            <h4>Dials</h4>
+                            <div class="style-field">
+                                <label>Background</label>
+                                <input type="color" id="style-dial-bg" value="#0f172a">
+                            </div>
+                            <div class="style-field">
+                                <label>Font Family</label>
+                                <select id="style-dial-font">
+                                    <option value="Outfit">Outfit</option>
+                                    <option value="Inter">Inter</option>
+                                    <option value="Roboto">Roboto</option>
+                                    <option value="Arial">Arial</option>
+                                </select>
+                            </div>
+                            <div class="style-field">
+                                <label>Font Size (px)</label>
+                                <input type="number" id="style-dial-size" value="13" min="8" max="24">
+                            </div>
+                            <div class="style-field">
+                                <label>Label Position</label>
+                                <select id="style-dial-pos">
+                                    <option value="left">Left</option>
+                                    <option value="center">Center</option>
+                                    <option value="right">Right</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
             </div>
         </header>
 
@@ -36,6 +110,13 @@
                     <input type="text" id="plugin-search" placeholder="Search plugins...">
                 </div>
 
+                <div class="filter-tabs">
+                    <button class="filter-tab active" data-filter="all">All</button>
+                    <button class="filter-tab" data-filter="key">Buttons</button>
+                    <button class="filter-tab" data-filter="dial">Dials</button>
+                    <button class="filter-tab" data-filter="both">Both</button>
+                </div>
+
                 <div class="plugins-list" id="plugins-list">
                     <!-- Dynamic Plugin Cards will go here -->
                     <div class="loading-spinner">Loading plugins...</div>
@@ -44,6 +125,13 @@
 
             <!-- Configuration Workspace (Stream Deck Mockup) -->
             <main class="workspace">
+                <div class="workspace-header">
+                    <div class="page-tabs" id="page-tabs-container">
+                        <!-- Dynamic page tabs will go here -->
+                    </div>
+                    <button class="add-page-btn" id="add-page-btn" title="Add New Page">+ Add Page</button>
+                </div>
+
                 <div class="deck-mockup">
                     <!-- Key Grid (8 buttons) -->
                     <div class="key-grid">

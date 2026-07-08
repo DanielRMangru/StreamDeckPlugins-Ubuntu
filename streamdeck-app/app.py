@@ -1,6 +1,7 @@
 import io
 import os
 import sys
+import contextlib
 import json
 import time
 import signal
@@ -156,14 +157,59 @@ def discover_all_plugins():
 # ---------------------------------------------------------------------------
 
 def load_config():
+    default_cfg = {
+        "pages": [
+            {"keys": {}, "dials": {}}
+        ],
+        "active_page_index": 0,
+        "global_styles": {
+            "key_bg_color": "#0f172a",
+            "key_font_family": "Outfit",
+            "key_font_size": 12,
+            "key_label_position": "top",
+            "dial_bg_color": "#0f172a",
+            "dial_font_family": "Outfit",
+            "dial_font_size": 13,
+            "dial_label_position": "left"
+        }
+    }
     if not CONFIG_PATH.exists():
-        return {"keys": {}, "dials": {}}
+        return default_cfg
     try:
         with open(CONFIG_PATH, "r") as f:
-            return json.load(f)
+            cfg = json.load(f)
+        
+        # Migration: if "keys" and "dials" are at root level, migrate to "pages"
+        if "keys" in cfg and "dials" in cfg and "pages" not in cfg:
+            cfg = {
+                "pages": [
+                    {"keys": cfg.get("keys", {}), "dials": cfg.get("dials", {})}
+                ],
+                "active_page_index": 0,
+                "global_styles": default_cfg["global_styles"]
+            }
+        
+        # Ensure pages has at least one page
+        if "pages" not in cfg or not isinstance(cfg["pages"], list) or len(cfg["pages"]) == 0:
+            cfg["pages"] = [{"keys": {}, "dials": {}}]
+            
+        # Ensure active_page_index is valid
+        if "active_page_index" not in cfg:
+            cfg["active_page_index"] = 0
+        elif cfg["active_page_index"] >= len(cfg["pages"]):
+            cfg["active_page_index"] = 0
+            
+        # Ensure global_styles has values
+        if "global_styles" not in cfg or not isinstance(cfg["global_styles"], dict):
+            cfg["global_styles"] = default_cfg["global_styles"]
+        else:
+            for k, v in default_cfg["global_styles"].items():
+                cfg["global_styles"].setdefault(k, v)
+                
+        return cfg
     except Exception as e:
         print(f"[DAEMON] Error reading config: {e}")
-        return {"keys": {}, "dials": {}}
+        return default_cfg
 
 def save_config(cfg):
     try:
@@ -176,39 +222,179 @@ def save_config(cfg):
 # Stream Deck Hardware Operations
 # ---------------------------------------------------------------------------
 
+drawing_lock = threading.Lock()
+
+@contextlib.contextmanager
+def apply_global_styles_context(global_styles):
+    original_new = Image.new
+    original_load_default = ImageFont.load_default
+    original_text = ImageDraw.ImageDraw.text
+    
+    original_rectangle = ImageDraw.ImageDraw.rectangle
+    
+    def parse_hex(hex_str, default):
+        try:
+            hex_str = hex_str.lstrip('#')
+            return tuple(int(hex_str[i:i+2], 16) for i in (0, 2, 4))
+        except:
+            return default
+
+    def patched_new(mode, size, color=0):
+        if size == (120, 120):
+            bg = global_styles.get("key_bg_color", "#0f172a")
+            color = parse_hex(bg, (15, 23, 42))
+        elif size == (200, 100) or size == (SEGMENT_WIDTH, SCREEN_HEIGHT):
+            bg = global_styles.get("dial_bg_color", "#0f172a")
+            color = parse_hex(bg, (20, 20, 20))
+        return original_new(mode, size, color)
+
+    def patched_load_default(size=None, **kwargs):
+        font_family = global_styles.get("key_font_family", "Outfit")
+        
+        # Determine standard system fonts on Linux system (DejaVuSans or LiberationSans)
+        font_path = "/usr/share/fonts/truetype/liberation/LiberationSans-Regular.ttf"
+        if font_family.lower() == "dejavu":
+            font_path = "/usr/share/fonts/truetype/dejavu/DejaVuSans.ttf"
+        
+        # Check size override and adjust proportionally
+        if size is not None:
+            style_size = global_styles.get("key_font_size", 12)
+            if size <= 15:
+                size = style_size
+            else:
+                size = int(size * (style_size / 12.0))
+                
+        if os.path.exists(font_path):
+            try:
+                return ImageFont.truetype(font_path, size or 12)
+            except:
+                pass
+        return original_load_default(size=size, **kwargs)
+
+    def patched_text(self, xy, text, fill=None, font=None, *args, **kwargs):
+        x, y = xy
+        w, h = self.im.size
+        
+        if w == 120 and h == 120:
+            # Key rendering coordinate adjustment
+            pos = global_styles.get("key_label_position", "top")
+            if pos == "bottom":
+                if y < 25:
+                    y = y + 78
+                elif 25 <= y < 70:
+                    y = y - 10
+                elif y >= 70:
+                    y = y - 45
+            elif pos == "middle":
+                if y < 25:
+                    y = y + 33
+                elif 25 <= y < 70:
+                    y = y - 25
+        elif w == 200 and h == 100:
+            # Dial segment rendering coordinate adjustment
+            pos = global_styles.get("dial_label_position", "left")
+            if pos == "center":
+                if font:
+                    try:
+                        bbox = self.textbbox((0, 0), text, font=font)
+                        tw = bbox[2] - bbox[0]
+                        x = (w - tw) // 2
+                    except:
+                        pass
+            elif pos == "right":
+                if font:
+                    try:
+                        bbox = self.textbbox((0, 0), text, font=font)
+                        tw = bbox[2] - bbox[0]
+                        x = w - tw - 15
+                    except:
+                        pass
+                        
+        xy = (x, y)
+        return original_text(self, xy, text, fill, font, *args, **kwargs)
+
+    def patched_rectangle(self, xy, fill=None, outline=None, width=1):
+        w, h = self.im.size
+        # Dial segment full background override
+        if w == 200 and h == 100:
+            if fill == (20, 20, 20) and len(xy) == 4 and xy[0] == 0 and xy[1] == 0 and xy[2] >= w - 1 and xy[3] >= h - 1:
+                bg = global_styles.get("dial_bg_color", "#0f172a")
+                fill = parse_hex(bg, (20, 20, 20))
+        # Key full background override (if any plugin draws one)
+        elif w == 120 and h == 120:
+            if len(xy) == 4 and xy[0] == 0 and xy[1] == 0 and xy[2] >= w - 1 and xy[3] >= h - 1:
+                bg = global_styles.get("key_bg_color", "#0f172a")
+                fill = parse_hex(bg, (15, 23, 42))
+        return original_rectangle(self, xy, fill, outline, width)
+
+    # Apply patches
+    Image.new = patched_new
+    ImageFont.load_default = patched_load_default
+    ImageDraw.ImageDraw.text = patched_text
+    ImageDraw.ImageDraw.rectangle = patched_rectangle
+    try:
+        yield
+    finally:
+        # Restore original functions
+        Image.new = original_new
+        ImageFont.load_default = original_load_default
+        ImageDraw.ImageDraw.text = original_text
+        ImageDraw.ImageDraw.rectangle = original_rectangle
+
+
 def update_lcd_strip():
     """Redraw the 4-segment LCD touchscreen strip and push it to hardware."""
     global deck
     if deck is None:
         return
         
-    canvas = Image.new("RGB", (SCREEN_WIDTH, SCREEN_HEIGHT), color=(15, 15, 15))
+    cfg = load_config()
+    pages = cfg.get("pages", [])
+    page_count = len(pages)
+    active_page_idx = cfg.get("active_page_index", 0)
+    global_styles = cfg.get("global_styles", {})
     
-    for i in range(4):
-        segment = Image.new("RGB", (SEGMENT_WIDTH, SCREEN_HEIGHT), color=(20, 20, 20))
-        draw = ImageDraw.Draw(segment)
+    with drawing_lock, apply_global_styles_context(global_styles):
+        canvas = Image.new("RGB", (SCREEN_WIDTH, SCREEN_HEIGHT), color=(15, 15, 15))
         
-        with state_lock:
-            plugin = dial_plugins.get(i)
+        for i in range(4):
+            segment = Image.new("RGB", (SEGMENT_WIDTH, SCREEN_HEIGHT), color=(20, 20, 20))
+            draw = ImageDraw.Draw(segment)
             
-        if plugin:
-            try:
-                plugin.draw_segment(draw, SEGMENT_WIDTH, SCREEN_HEIGHT)
-            except Exception as e:
-                print(f"[DAEMON] Draw error on dial {i} ({plugin.name}): {e}")
-                draw.text((15, 15), "Error drawing", fill=(255, 100, 100))
-        else:
-            # Draw empty segment placeholder
-            try:
-                font_small = ImageFont.load_default(size=12)
-            except Exception:
-                font_small = ImageFont.load_default()
-            draw.text((15, 40), f"Dial {i+1} Unassigned", fill=(75, 85, 99), font=font_small)
-            
-        # Draw vertical separator lines
-        draw.line([SEGMENT_WIDTH - 1, 0, SEGMENT_WIDTH - 1, SCREEN_HEIGHT], fill=(40, 40, 40))
-        canvas.paste(segment, (i * SEGMENT_WIDTH, 0))
+            with state_lock:
+                plugin = dial_plugins.get(i)
+                
+            if plugin:
+                try:
+                    plugin.draw_segment(draw, SEGMENT_WIDTH, SCREEN_HEIGHT)
+                except Exception as e:
+                    print(f"[DAEMON] Draw error on dial {i} ({plugin.name}): {e}")
+                    draw.text((15, 15), "Error drawing", fill=(255, 100, 100))
+            else:
+                # Draw empty segment placeholder
+                try:
+                    font_small = ImageFont.load_default(size=12)
+                except Exception:
+                    font_small = ImageFont.load_default()
+                draw.text((15, 40), f"Dial {i+1} Unassigned", fill=(75, 85, 99), font=font_small)
+                
+            # Draw vertical separator lines
+            draw.line([SEGMENT_WIDTH - 1, 0, SEGMENT_WIDTH - 1, SCREEN_HEIGHT], fill=(40, 40, 40))
+            canvas.paste(segment, (i * SEGMENT_WIDTH, 0))
         
+    # Draw page indicator dots if multiple pages exist
+    if page_count > 1:
+        canvas_draw = ImageDraw.Draw(canvas)
+        dot_radius = 3
+        dot_spacing = 14
+        total_w = (page_count - 1) * dot_spacing
+        start_x = (SCREEN_WIDTH - total_w) // 2
+        dot_y = SCREEN_HEIGHT - 8
+        for p in range(page_count):
+            cx = start_x + p * dot_spacing
+            fill_color = (59, 130, 246) if p == active_page_idx else (75, 85, 99)
+            canvas_draw.ellipse([cx - dot_radius, dot_y - dot_radius, cx + dot_radius, dot_y + dot_radius], fill=fill_color)
+            
     # Convert and push
     buf = io.BytesIO()
     canvas.save(buf, format="JPEG", quality=95)
@@ -228,17 +414,50 @@ def update_key_display(key_index):
     with state_lock:
         plugin = key_plugins.get(key_index)
         
+    cfg = load_config()
+    global_styles = cfg.get("global_styles", {})
+    
     if plugin:
         try:
-            img_bytes = plugin.get_image("IDLE")
+            with drawing_lock, apply_global_styles_context(global_styles):
+                img_bytes = plugin.get_image("IDLE")
         except Exception as e:
             print(f"[DAEMON] Error generating image for key {key_index}: {e}")
             img_bytes = None
     else:
-        # Default empty image
-        buf = io.BytesIO()
-        BLANK_KEY_IMAGE.save(buf, format="JPEG", quality=95)
-        img_bytes = buf.getvalue()
+        # Default empty image styled to match custom background with unassigned labels
+        try:
+            with drawing_lock, apply_global_styles_context(global_styles):
+                img = Image.new("RGB", (120, 120))
+                draw = ImageDraw.Draw(img)
+                # Draw subtle outline border
+                draw.rectangle([3, 3, 116, 116], outline=(55, 65, 81), width=1)
+                
+                try:
+                    font_small = ImageFont.load_default(size=11)
+                except Exception:
+                    font_small = ImageFont.load_default()
+                
+                t1 = f"Key {key_index + 1}"
+                t2 = "Unassigned"
+                
+                # Draw labels centered
+                bbox1 = draw.textbbox((0, 0), t1, font=font_small)
+                tw1 = bbox1[2] - bbox1[0]
+                draw.text(((120 - tw1) // 2, 45), t1, fill=(100, 116, 139), font=font_small)
+                
+                bbox2 = draw.textbbox((0, 0), t2, font=font_small)
+                tw2 = bbox2[2] - bbox2[0]
+                draw.text(((120 - tw2) // 2, 62), t2, fill=(71, 85, 105), font=font_small)
+                
+                buf = io.BytesIO()
+                img.save(buf, format="JPEG", quality=95)
+                img_bytes = buf.getvalue()
+        except Exception as e:
+            print(f"[DAEMON] Error generating blank key image: {e}")
+            buf = io.BytesIO()
+            BLANK_KEY_IMAGE.save(buf, format="JPEG", quality=95)
+            img_bytes = buf.getvalue()
         
     if img_bytes:
         try:
@@ -263,6 +482,13 @@ def apply_assignments(cfg):
     new_keys = {}
     new_dials = {}
     
+    # Get active page config
+    active_idx = cfg.get("active_page_index", 0)
+    pages = cfg.get("pages", [])
+    if active_idx >= len(pages):
+        active_idx = 0
+    active_page = pages[active_idx]
+    
     with state_lock:
         # Cleanup old key plugins
         for k, p in key_plugins.items():
@@ -275,18 +501,20 @@ def apply_assignments(cfg):
             except Exception: pass
             
         # Bind new keys
-        for key_str, item in cfg.get("keys", {}).items():
+        for key_str, item in active_page.get("keys", {}).items():
             k_idx = int(key_str)
             p_name = item.get("plugin")
             settings = item.get("settings", {})
             if p_name in available_plugins:
                 try:
-                    new_keys[k_idx] = available_plugins[p_name](settings)
+                    plugin_inst = available_plugins[p_name](settings)
+                    plugin_inst.redraw_callback = lambda idx=k_idx: update_key_display(idx)
+                    new_keys[k_idx] = plugin_inst
                 except Exception as e:
                     print(f"[DAEMON] Failed to instantiate key plugin {p_name}: {e}")
                     
         # Bind new dials
-        for dial_str, item in cfg.get("dials", {}).items():
+        for dial_str, item in active_page.get("dials", {}).items():
             d_idx = int(dial_str)
             p_name = item.get("plugin")
             settings = item.get("settings", {})
@@ -312,17 +540,24 @@ def deck_key_callback(deck_device, key, pressed):
     with state_lock:
         plugin = key_plugins.get(key)
         
+    cfg = load_config()
+    global_styles = cfg.get("global_styles", {})
+    
     if plugin:
         try:
             if pressed:
-                plugin.on_press()
+                if hasattr(plugin, "on_press"):
+                    plugin.on_press()
                 # Update button visuals immediately to PRESSED state
-                img_bytes = plugin.get_image("PRESSED")
+                with drawing_lock, apply_global_styles_context(global_styles):
+                    img_bytes = plugin.get_image("PRESSED")
                 deck_device.set_key_image(key, img_bytes)
             else:
-                plugin.on_release()
+                if hasattr(plugin, "on_release"):
+                    plugin.on_release()
                 # Fall back to normal state
-                img_bytes = plugin.get_image("RELEASED")
+                with drawing_lock, apply_global_styles_context(global_styles):
+                    img_bytes = plugin.get_image("RELEASED")
                 deck_device.set_key_image(key, img_bytes)
                 # Let it settle back to IDLE
                 def restore():
@@ -355,8 +590,41 @@ def deck_dial_callback(deck_device, dial, pressed, rotation):
         print(f"[DAEMON] Dial callback error on {dial}: {e}")
 
 
+last_page_switch_time = 0.0
+
 def deck_touchscreen_callback(deck_device, event_type, value):
-    global last_click_time
+    global last_click_time, last_page_switch_time
+    
+    # Intercept drag event for horizontal swipe page switching
+    evt_name = getattr(event_type, "name", "")
+    if event_type == 3 or event_type == "DRAG" or evt_name == "DRAG":
+        now = time.time()
+        if now - last_page_switch_time > 0.8:
+            x_start = value.get("x", 0)
+            x_end = value.get("x_out", 0)
+            dx = x_end - x_start
+            
+            if abs(dx) > 150:
+                last_page_switch_time = now
+                cfg = load_config()
+                pages = cfg.get("pages", [])
+                active_idx = cfg.get("active_page_index", 0)
+                
+                if dx < 0:
+                    # Swipe left -> Next Page
+                    new_idx = (active_idx + 1) % len(pages)
+                else:
+                    # Swipe right -> Previous Page
+                    new_idx = (active_idx - 1) % len(pages)
+                    
+                if new_idx != active_idx:
+                    print(f"[DAEMON] Page swipe gesture: page {active_idx + 1} -> {new_idx + 1}")
+                    cfg["active_page_index"] = new_idx
+                    save_config(cfg)
+                    apply_assignments(cfg)
+                return
+        return
+
     # We map x coordinates (0-800) to corresponding dial zone (0-3)
     x = value.get("x", 0)
     dial = x // SEGMENT_WIDTH
@@ -455,17 +723,25 @@ class RemoveModel(BaseModel):
 @app.get("/api/status")
 def get_status():
     global deck
+    cfg = load_config()
+    res = {
+        "status": "Disconnected",
+        "device": None,
+        "active_page_index": cfg.get("active_page_index", 0)
+    }
     if deck is None:
-        return {"status": "Disconnected", "device": None}
+        return res
     try:
-        return {
+        res.update({
             "status": "Connected",
             "device": deck.deck_type(),
             "serial": deck.get_serial_number(),
             "firmware": deck.get_firmware_version()
-        }
+        })
+        return res
     except Exception as e:
-        return {"status": "Connected", "device": "Stream Deck", "error": str(e)}
+        res.update({"status": "Connected", "device": "Stream Deck", "error": str(e)})
+        return res
 
 
 @app.get("/api/plugins")
@@ -496,10 +772,16 @@ def get_config():
 @app.post("/api/assign")
 def assign_plugin_endpoint(assignment: AssignmentModel):
     cfg = load_config()
+    active_idx = cfg.get("active_page_index", 0)
+    pages = cfg.get("pages", [])
+    if active_idx >= len(pages):
+        active_idx = 0
+    active_page = pages[active_idx]
+    
     target_section = "keys" if assignment.type == "key" else "dials"
     
     # Store settings
-    cfg[target_section][str(assignment.index)] = {
+    active_page[target_section][str(assignment.index)] = {
         "plugin": assignment.plugin,
         "settings": assignment.settings
     }
@@ -512,13 +794,89 @@ def assign_plugin_endpoint(assignment: AssignmentModel):
 @app.post("/api/remove")
 def remove_plugin_endpoint(target: RemoveModel):
     cfg = load_config()
+    active_idx = cfg.get("active_page_index", 0)
+    pages = cfg.get("pages", [])
+    if active_idx >= len(pages):
+        active_idx = 0
+    active_page = pages[active_idx]
+    
     target_section = "keys" if target.type == "key" else "dials"
     
     idx_str = str(target.index)
-    if idx_str in cfg[target_section]:
-        del cfg[target_section][idx_str]
+    if idx_str in active_page[target_section]:
+        del active_page[target_section][idx_str]
         
     save_config(cfg)
+    apply_assignments(cfg)
+    return {"message": "Success", "config": cfg}
+
+
+class PageSwitchModel(BaseModel):
+    index: int
+
+
+class PageDeleteModel(BaseModel):
+    index: int
+
+
+@app.post("/api/pages/switch")
+def switch_page(data: PageSwitchModel):
+    cfg = load_config()
+    pages = cfg.get("pages", [])
+    if 0 <= data.index < len(pages):
+        cfg["active_page_index"] = data.index
+        save_config(cfg)
+        apply_assignments(cfg)
+        return {"message": "Success", "config": cfg}
+    raise HTTPException(status_code=400, detail="Invalid page index")
+
+
+@app.post("/api/pages/add")
+def add_page():
+    cfg = load_config()
+    cfg.setdefault("pages", []).append({"keys": {}, "dials": {}})
+    cfg["active_page_index"] = len(cfg["pages"]) - 1
+    save_config(cfg)
+    apply_assignments(cfg)
+    return {"message": "Success", "config": cfg}
+
+
+@app.post("/api/pages/delete")
+def delete_page(data: PageDeleteModel):
+    cfg = load_config()
+    pages = cfg.get("pages", [])
+    if len(pages) <= 1:
+        raise HTTPException(status_code=400, detail="Cannot delete the only page")
+    if 0 <= data.index < len(pages):
+        pages.pop(data.index)
+        active_idx = cfg.get("active_page_index", 0)
+        if active_idx >= len(pages):
+            cfg["active_page_index"] = len(pages) - 1
+        elif active_idx > data.index:
+            cfg["active_page_index"] = active_idx - 1
+        save_config(cfg)
+        apply_assignments(cfg)
+        return {"message": "Success", "config": cfg}
+    raise HTTPException(status_code=400, detail="Invalid page index")
+
+
+class StylesModel(BaseModel):
+    key_bg_color: str
+    key_font_family: str
+    key_font_size: int
+    key_label_position: str
+    dial_bg_color: str
+    dial_font_family: str
+    dial_font_size: int
+    dial_label_position: str
+
+
+@app.post("/api/styles")
+def save_styles(styles: StylesModel):
+    cfg = load_config()
+    cfg["global_styles"] = styles.dict()
+    save_config(cfg)
+    # We do not strictly need to rebuild running plugins but this persists it
     apply_assignments(cfg)
     return {"message": "Success", "config": cfg}
 

@@ -1,57 +1,76 @@
 {
-  "keys": {
-    "3": {
-      "plugin": "ClockPlugin",
-      "settings": {}
-    },
-    "0": {
-      "plugin": "CpuUsagePlugin",
-      "settings": {}
-    },
-    "1": {
-      "plugin": "CpuTempPlugin",
-      "settings": {}
-    },
-    "2": {
-      "plugin": "MemUsagePlugin",
-      "settings": {}
-    },
-    "4": {
-      "plugin": "GpuVramPlugin",
-      "settings": {}
-    },
-    "5": {
-      "plugin": "GpuTempPlugin",
-      "settings": {}
-    },
-    "6": {
-      "plugin": "AppLauncherPlugin",
-      "settings": {
-        "label": "Terminal",
-        "command": "gnome-terminal"
+  "pages": [
+    {
+      "keys": {
+        "3": {
+          "plugin": "ClockPlugin",
+          "settings": {}
+        },
+        "0": {
+          "plugin": "CpuUsagePlugin",
+          "settings": {}
+        },
+        "1": {
+          "plugin": "CpuTempPlugin",
+          "settings": {}
+        },
+        "2": {
+          "plugin": "MemUsagePlugin",
+          "settings": {}
+        },
+        "4": {
+          "plugin": "GpuVramPlugin",
+          "settings": {}
+        },
+        "5": {
+          "plugin": "GpuTempPlugin",
+          "settings": {}
+        },
+        "6": {
+          "plugin": "AppLauncherPlugin",
+          "settings": {
+            "label": "Terminal",
+            "command": "gnome-terminal"
+          }
+        },
+        "7": {
+          "plugin": "WeatherPollenPlugin",
+          "settings": {}
+        }
+      },
+      "dials": {
+        "0": {
+          "plugin": "BrightnessPlugin",
+          "settings": {}
+        },
+        "1": {
+          "plugin": "TimerPlugin",
+          "settings": {}
+        },
+        "2": {
+          "plugin": "MicVolumePlugin",
+          "settings": {}
+        },
+        "3": {
+          "plugin": "VolumePlugin",
+          "settings": {}
+        }
       }
     },
-    "7": {
-      "plugin": "WeatherPollenPlugin",
-      "settings": {}
+    {
+      "keys": {},
+      "dials": {}
     }
-  },
-  "dials": {
-    "0": {
-      "plugin": "BrightnessPlugin",
-      "settings": {}
-    },
-    "1": {
-      "plugin": "TimerPlugin",
-      "settings": {}
-    },
-    "2": {
-      "plugin": "MicVolumePlugin",
-      "settings": {}
-    },
-    "3": {
-      "plugin": "VolumePlugin",
-      "settings": {}
-    }
+  ],
+  "active_page_index": 0,
+  "global_styles": {
+    "key_bg_color": "#01004d",
+    "key_font_family": "Roboto",
+    "key_font_size": 15,
+    "key_label_position": "top",
+    "dial_bg_color": "#2b1641",
+    "dial_font_family": "Roboto",
+    "dial_font_size": 15,
+    "dial_label_position": "center"
   }
 }

@@ -12,12 +12,28 @@ document.addEventListener("DOMContentLoaded", () => {
     const settingsForm = document.getElementById("settings-form");
     const dynamicFields = document.getElementById("dynamic-settings-fields");
     const settingsPluginName = document.getElementById("settings-plugin-name");
+    const pageTabsContainer = document.getElementById("page-tabs-container");
+    const addPageBtn = document.getElementById("add-page-btn");
+    
+    // Style settings elements
+    const stylesMenuBtn = document.getElementById("styles-menu-btn");
+    const stylesContentPanel = document.getElementById("styles-content-panel");
+    const styleKeyBg = document.getElementById("style-key-bg");
+    const styleKeyFont = document.getElementById("style-key-font");
+    const styleKeySize = document.getElementById("style-key-size");
+    const styleKeyPos = document.getElementById("style-key-pos");
+    const styleDialBg = document.getElementById("style-dial-bg");
+    const styleDialFont = document.getElementById("style-dial-font");
+    const styleDialSize = document.getElementById("style-dial-size");
+    const styleDialPos = document.getElementById("style-dial-pos");
     
     // Application state
     let availablePlugins = [];
     let currentConfig = {};
     let currentDragItem = null;
     let pendingAssignment = null; // { type, index, plugin }
+    let currentTypeFilter = "all";
+    let currentSearchQuery = "";
 
 
 
@@ -36,6 +52,11 @@ document.addEventListener("DOMContentLoaded", () => {
             } else {
                 statusIndicator.className = "status-indicator disconnect";
                 statusText.textContent = "No Stream Deck found";
+            }
+
+            // Sync page changes triggered by hardware swipes
+            if (data.active_page_index !== undefined && data.active_page_index !== currentConfig.active_page_index) {
+                await fetchConfig();
             }
         } catch (e) {
             statusIndicator.className = "status-indicator disconnect";
@@ -58,6 +79,8 @@ document.addEventListener("DOMContentLoaded", () => {
             const res = await fetch(`${API_BASE}/config`);
             currentConfig = await res.json();
             renderAssignments();
+            renderPageTabs();
+            initStyleInputs();
         } catch (e) {
             console.error("Error fetching config", e);
         }
@@ -110,11 +133,15 @@ document.addEventListener("DOMContentLoaded", () => {
     }
 
     function renderAssignments() {
+        const pages = currentConfig.pages || [];
+        const activeIdx = currentConfig.active_page_index || 0;
+        const activePage = pages[activeIdx] || { keys: {}, dials: {} };
+
         // Reset all key dropzones
         document.querySelectorAll(".key-dropzone").forEach(zone => {
             const index = zone.dataset.index;
             const content = zone.querySelector(".plugin-content");
-            const keyConfig = currentConfig.keys[index];
+            const keyConfig = activePage.keys[index];
 
             if (keyConfig) {
                 const pluginMeta = availablePlugins.find(p => p.class_name === keyConfig.plugin);
@@ -139,7 +166,7 @@ document.addEventListener("DOMContentLoaded", () => {
         document.querySelectorAll(".lcd-segment").forEach(zone => {
             const index = zone.dataset.index;
             const content = zone.querySelector(".plugin-content");
-            const dialConfig = currentConfig.dials[index];
+            const dialConfig = activePage.dials[index];
 
             if (dialConfig) {
                 const pluginMeta = availablePlugins.find(p => p.class_name === dialConfig.plugin);
@@ -167,6 +194,9 @@ document.addEventListener("DOMContentLoaded", () => {
                 removeAssignment(type, index);
             });
         });
+        
+        // Always apply global styling settings on assignments updates
+        applyGlobalStyles();
     }
 
     // -----------------------------------------------------------------------
@@ -210,7 +240,10 @@ document.addEventListener("DOMContentLoaded", () => {
             zone.addEventListener("click", () => {
                 const index = zone.dataset.index;
                 const type = zone.dataset.type;
-                const configGroup = type === "key" ? currentConfig.keys : currentConfig.dials;
+                const pages = currentConfig.pages || [];
+                const activeIdx = currentConfig.active_page_index || 0;
+                const activePage = pages[activeIdx] || { keys: {}, dials: {} };
+                const configGroup = type === "key" ? activePage.keys : activePage.dials;
                 const assignment = configGroup[index];
 
                 if (assignment) {
@@ -283,6 +316,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await res.json();
             currentConfig = data.config;
             renderAssignments();
+            renderPageTabs();
         } catch (e) {
             console.error("Failed to assign plugin", e);
         }
@@ -298,6 +332,7 @@ document.addEventListener("DOMContentLoaded", () => {
             const data = await res.json();
             currentConfig = data.config;
             renderAssignments();
+            renderPageTabs();
         } catch (e) {
             console.error("Failed to remove assignment", e);
         }
@@ -336,14 +371,290 @@ document.addEventListener("DOMContentLoaded", () => {
         closeSettings();
     });
 
+    // Combined filtering logic
+    function applyFilters() {
+        const filtered = availablePlugins.filter(plugin => {
+            // Search query match
+            const matchesSearch = plugin.name.toLowerCase().includes(currentSearchQuery) || 
+                                  plugin.description.toLowerCase().includes(currentSearchQuery);
+            
+            // Type filter match
+            let matchesType = true;
+            if (currentTypeFilter === "key") {
+                // Show plugins that can be assigned to buttons (key or both)
+                matchesType = (plugin.target === "key" || plugin.target === "both");
+            } else if (currentTypeFilter === "dial") {
+                // Show plugins that can be assigned to dials (dial or both)
+                matchesType = (plugin.target === "dial" || plugin.target === "both");
+            } else if (currentTypeFilter === "both") {
+                // Show plugins that specifically target both
+                matchesType = (plugin.target === "both");
+            }
+            
+            return matchesSearch && matchesType;
+        });
+        
+        renderPlugins(filtered);
+    }
+
     // Search filter logic
     pluginSearch.addEventListener("input", (e) => {
-        const query = e.target.value.toLowerCase();
-        const filtered = availablePlugins.filter(p => 
-            p.name.toLowerCase().includes(query) || 
-            p.description.toLowerCase().includes(query)
-        );
-        renderPlugins(filtered);
+        currentSearchQuery = e.target.value.toLowerCase();
+        applyFilters();
+    });
+
+    // Filter tabs logic
+    const filterTabs = document.querySelectorAll(".filter-tab");
+    filterTabs.forEach(tab => {
+        tab.addEventListener("click", () => {
+            filterTabs.forEach(t => t.classList.remove("active"));
+            tab.classList.add("active");
+            currentTypeFilter = tab.dataset.filter;
+            applyFilters();
+        });
+    });
+
+    // Page Management Handlers
+    function renderPageTabs() {
+        if (!pageTabsContainer) return;
+        pageTabsContainer.innerHTML = "";
+        
+        const pages = currentConfig.pages || [];
+        const activeIdx = currentConfig.active_page_index || 0;
+        
+        pages.forEach((page, idx) => {
+            const tab = document.createElement("button");
+            tab.className = `page-tab ${idx === activeIdx ? 'active' : ''}`;
+            tab.innerHTML = `<span>Page ${idx + 1}</span>`;
+            
+            // Delete button if there is more than 1 page
+            if (pages.length > 1) {
+                const delBtn = document.createElement("span");
+                delBtn.className = "delete-page-btn";
+                delBtn.innerHTML = "&times;";
+                delBtn.title = "Delete Page";
+                delBtn.addEventListener("click", (e) => {
+                    e.stopPropagation();
+                    deletePage(idx);
+                });
+                tab.appendChild(delBtn);
+            }
+            
+            tab.addEventListener("click", () => {
+                switchPage(idx);
+            });
+            
+            pageTabsContainer.appendChild(tab);
+        });
+    }
+
+    async function switchPage(index) {
+        try {
+            const res = await fetch(`${API_BASE}/pages/switch`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ index })
+            });
+            const data = await res.json();
+            currentConfig = data.config;
+            renderAssignments();
+            renderPageTabs();
+        } catch (e) {
+            console.error("Failed to switch page", e);
+        }
+    }
+
+    async function addPage() {
+        try {
+            const res = await fetch(`${API_BASE}/pages/add`, {
+                method: "POST"
+            });
+            const data = await res.json();
+            currentConfig = data.config;
+            renderAssignments();
+            renderPageTabs();
+        } catch (e) {
+            console.error("Failed to add page", e);
+        }
+    }
+
+    async function deletePage(index) {
+        if (!confirm(`Are you sure you want to delete Page ${index + 1}? All plugin assignments on this page will be lost.`)) {
+            return;
+        }
+        try {
+            const res = await fetch(`${API_BASE}/pages/delete`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify({ index })
+            });
+            const data = await res.json();
+            currentConfig = data.config;
+            renderAssignments();
+            renderPageTabs();
+        } catch (e) {
+            console.error("Failed to delete page", e);
+        }
+    }
+
+    if (addPageBtn) {
+        addPageBtn.addEventListener("click", addPage);
+    }
+
+    // Style settings layout helper functions
+    function initStyleInputs() {
+        const styles = currentConfig.global_styles;
+        if (!styles) return;
+
+        if (styleKeyBg) styleKeyBg.value = styles.key_bg_color;
+        if (styleKeyFont) styleKeyFont.value = styles.key_font_family;
+        if (styleKeySize) styleKeySize.value = styles.key_font_size;
+        if (styleKeyPos) styleKeyPos.value = styles.key_label_position;
+        if (styleDialBg) styleDialBg.value = styles.dial_bg_color;
+        if (styleDialFont) styleDialFont.value = styles.dial_font_family;
+        if (styleDialSize) styleDialSize.value = styles.dial_font_size;
+        if (styleDialPos) styleDialPos.value = styles.dial_label_position;
+
+        applyGlobalStyles();
+    }
+
+    function applyGlobalStyles() {
+        const keyBg = styleKeyBg ? styleKeyBg.value : "#0f172a";
+        const keyFont = styleKeyFont ? styleKeyFont.value : "Outfit";
+        const keySize = styleKeySize ? styleKeySize.value : "12";
+        const keyPos = styleKeyPos ? styleKeyPos.value : "top";
+
+        const dialBg = styleDialBg ? styleDialBg.value : "#0f172a";
+        const dialFont = styleDialFont ? styleDialFont.value : "Outfit";
+        const dialSize = styleDialSize ? styleDialSize.value : "13";
+        const dialPos = styleDialPos ? styleDialPos.value : "left";
+
+        // Style all mockup keys
+        document.querySelectorAll(".key-dropzone").forEach(zone => {
+            zone.style.backgroundColor = keyBg;
+            zone.style.fontFamily = `'${keyFont}', sans-serif`;
+            zone.style.fontSize = `${keySize}px`;
+
+            const label = zone.querySelector(".index-label");
+            if (label) {
+                label.style.top = "auto";
+                label.style.bottom = "auto";
+                label.style.transform = "none";
+                
+                if (keyPos === "top") {
+                    label.style.top = "8px";
+                } else if (keyPos === "bottom") {
+                    label.style.bottom = "8px";
+                } else if (keyPos === "middle") {
+                    label.style.top = "50%";
+                    label.style.transform = "translateY(-50%)";
+                }
+            }
+
+            const content = zone.querySelector(".plugin-content");
+            if (content) {
+                content.style.height = "100%";
+                content.style.display = "flex";
+                content.style.flexDirection = "column";
+                if (keyPos === "top") {
+                    content.style.justifyContent = "flex-end";
+                } else if (keyPos === "bottom") {
+                    content.style.justifyContent = "flex-start";
+                } else {
+                    content.style.justifyContent = "center";
+                }
+            }
+        });
+
+        // Style all mockup LCD dial segments
+        document.querySelectorAll(".lcd-segment").forEach(zone => {
+            zone.style.backgroundColor = dialBg;
+            zone.style.fontFamily = `'${dialFont}', sans-serif`;
+            zone.style.fontSize = `${dialSize}px`;
+
+            let alignment = "flex-start";
+            if (dialPos === "center") alignment = "center";
+            else if (dialPos === "right") alignment = "flex-end";
+
+            zone.style.alignItems = alignment;
+
+            const label = zone.querySelector(".segment-label");
+            if (label) {
+                label.style.left = "auto";
+                label.style.right = "auto";
+                label.style.transform = "none";
+                
+                if (dialPos === "left") {
+                    label.style.left = "8px";
+                } else if (dialPos === "right") {
+                    label.style.right = "8px";
+                } else if (dialPos === "center") {
+                    label.style.left = "50%";
+                    label.style.transform = "translateX(-50%)";
+                }
+            }
+            
+            const content = zone.querySelector(".plugin-content");
+            if (content) {
+                content.style.textAlign = dialPos;
+            }
+        });
+    }
+
+    async function saveStyles() {
+        const styles = {
+            key_bg_color: styleKeyBg.value,
+            key_font_family: styleKeyFont.value,
+            key_font_size: parseInt(styleKeySize.value) || 12,
+            key_label_position: styleKeyPos.value,
+            dial_bg_color: styleDialBg.value,
+            dial_font_family: styleDialFont.value,
+            dial_font_size: parseInt(styleDialSize.value) || 13,
+            dial_label_position: styleDialPos.value
+        };
+
+        try {
+            const res = await fetch(`${API_BASE}/styles`, {
+                method: "POST",
+                headers: { "Content-Type": "application/json" },
+                body: JSON.stringify(styles)
+            });
+            const data = await res.json();
+            currentConfig = data.config;
+        } catch (e) {
+            console.error("Failed to save styles", e);
+        }
+    }
+
+    // Set up style form listeners
+    const styleInputs = [
+        styleKeyBg, styleKeyFont, styleKeySize, styleKeyPos,
+        styleDialBg, styleDialFont, styleDialSize, styleDialPos
+    ];
+    styleInputs.forEach(input => {
+        if (input) {
+            input.addEventListener("input", applyGlobalStyles);
+            input.addEventListener("change", saveStyles);
+        }
+    });
+
+    // Global Styles dropdown toggler
+    if (stylesMenuBtn) {
+        stylesMenuBtn.addEventListener("click", (e) => {
+            e.stopPropagation();
+            const isCollapsed = stylesContentPanel.classList.toggle("collapsed");
+            stylesMenuBtn.classList.toggle("active", !isCollapsed);
+        });
+    }
+
+    // Close global styles dropdown when clicking outside
+    document.addEventListener("click", (e) => {
+        if (stylesContentPanel && !stylesContentPanel.classList.contains("collapsed")) {
+            if (!stylesContentPanel.contains(e.target) && e.target !== stylesMenuBtn && !stylesMenuBtn.contains(e.target)) {
+                stylesContentPanel.classList.add("collapsed");
+                stylesMenuBtn.classList.remove("active");
+            }
+        }
     });
 
     // -----------------------------------------------------------------------
