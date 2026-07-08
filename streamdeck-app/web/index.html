@@ -1,0 +1,178 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Stream Deck+ Configurator</title>
+    <link rel="stylesheet" href="index.css">
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Outfit:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="glass-bg"></div>
+    
+    <div class="app-container">
+        <!-- Header -->
+        <header>
+            <div class="logo">
+                <span class="gradient-text">Stream Deck+</span> Configurator
+            </div>
+            <div class="device-status" id="device-status">
+                <span class="status-indicator disconnect"></span>
+                <span class="status-text">Checking device...</span>
+            </div>
+        </header>
+
+        <div class="main-layout">
+            <!-- Sidebar / Available Plugins -->
+            <aside class="sidebar">
+                <div class="section-header">
+                    <h2>Plugins</h2>
+                    <p>Drag a plugin to a button or dial on the right.</p>
+                </div>
+                
+                <div class="search-bar">
+                    <input type="text" id="plugin-search" placeholder="Search plugins...">
+                </div>
+
+                <div class="plugins-list" id="plugins-list">
+                    <!-- Dynamic Plugin Cards will go here -->
+                    <div class="loading-spinner">Loading plugins...</div>
+                </div>
+            </aside>
+
+            <!-- Configuration Workspace (Stream Deck Mockup) -->
+            <main class="workspace">
+                <div class="deck-mockup">
+                    <!-- Key Grid (8 buttons) -->
+                    <div class="key-grid">
+                        <div class="key-dropzone" data-type="key" data-index="0" id="key-0">
+                            <span class="index-label">1</span>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty</div>
+                            </div>
+                        </div>
+                        <div class="key-dropzone" data-type="key" data-index="1" id="key-1">
+                            <span class="index-label">2</span>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty</div>
+                            </div>
+                        </div>
+                        <div class="key-dropzone" data-type="key" data-index="2" id="key-2">
+                            <span class="index-label">3</span>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty</div>
+                            </div>
+                        </div>
+                        <div class="key-dropzone" data-type="key" data-index="3" id="key-3">
+                            <span class="index-label">4</span>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty</div>
+                            </div>
+                        </div>
+                        <div class="key-dropzone" data-type="key" data-index="4" id="key-4">
+                            <span class="index-label">5</span>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty</div>
+                            </div>
+                        </div>
+                        <div class="key-dropzone" data-type="key" data-index="5" id="key-5">
+                            <span class="index-label">6</span>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty</div>
+                            </div>
+                        </div>
+                        <div class="key-dropzone" data-type="key" data-index="6" id="key-6">
+                            <span class="index-label">7</span>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty</div>
+                            </div>
+                        </div>
+                        <div class="key-dropzone" data-type="key" data-index="7" id="key-7">
+                            <span class="index-label">8</span>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Touchscreen LCD Strip (divided into 4 segments) -->
+                    <div class="lcd-strip">
+                        <div class="lcd-segment" data-type="dial" data-index="0" id="lcd-0">
+                            <div class="segment-label">Zone 1</div>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty Screen Segment</div>
+                            </div>
+                        </div>
+                        <div class="lcd-segment" data-type="dial" data-index="1" id="lcd-1">
+                            <div class="segment-label">Zone 2</div>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty Screen Segment</div>
+                            </div>
+                        </div>
+                        <div class="lcd-segment" data-type="dial" data-index="2" id="lcd-2">
+                            <div class="segment-label">Zone 3</div>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty Screen Segment</div>
+                            </div>
+                        </div>
+                        <div class="lcd-segment" data-type="dial" data-index="3" id="lcd-3">
+                            <div class="segment-label">Zone 4</div>
+                            <div class="plugin-content">
+                                <div class="empty-placeholder">Empty Screen Segment</div>
+                            </div>
+                        </div>
+                    </div>
+
+                    <!-- Rotary Knobs (4 dials) -->
+                    <div class="dial-row">
+                        <div class="dial-container">
+                            <div class="dial-knob" data-index="0" id="dial-0">
+                                <div class="dial-indicator"></div>
+                            </div>
+                            <span class="dial-label">Dial 1</span>
+                        </div>
+                        <div class="dial-container">
+                            <div class="dial-knob" data-index="1" id="dial-1">
+                                <div class="dial-indicator"></div>
+                            </div>
+                            <span class="dial-label">Dial 2</span>
+                        </div>
+                        <div class="dial-container">
+                            <div class="dial-knob" data-index="2" id="dial-2">
+                                <div class="dial-indicator"></div>
+                            </div>
+                            <span class="dial-label">Dial 3</span>
+                        </div>
+                        <div class="dial-container">
+                            <div class="dial-knob" data-index="3" id="dial-3">
+                                <div class="dial-indicator"></div>
+                            </div>
+                            <span class="dial-label">Dial 4</span>
+                        </div>
+                    </div>
+                </div>
+            </main>
+        </div>
+    </div>
+
+    <!-- Configuration Settings Sidebar/Modal -->
+    <div class="modal-overlay" id="settings-modal">
+        <div class="settings-panel">
+            <button class="close-btn" id="close-settings">&times;</button>
+            <h3 class="panel-title">Configure Assignment</h3>
+            <p id="settings-plugin-name" class="plugin-subtitle">Plugin: Clock</p>
+            
+            <form id="settings-form">
+                <div id="dynamic-settings-fields">
+                    <!-- Fields dynamically generated here -->
+                </div>
+                <button type="submit" class="save-settings-btn">Save Assignment</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="index.js"></script>
+</body>
+</html>

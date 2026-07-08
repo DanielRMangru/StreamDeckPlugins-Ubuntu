@@ -1,0 +1,57 @@
+{
+  "keys": {
+    "3": {
+      "plugin": "ClockPlugin",
+      "settings": {}
+    },
+    "0": {
+      "plugin": "CpuUsagePlugin",
+      "settings": {}
+    },
+    "1": {
+      "plugin": "CpuTempPlugin",
+      "settings": {}
+    },
+    "2": {
+      "plugin": "MemUsagePlugin",
+      "settings": {}
+    },
+    "4": {
+      "plugin": "GpuVramPlugin",
+      "settings": {}
+    },
+    "5": {
+      "plugin": "GpuTempPlugin",
+      "settings": {}
+    },
+    "6": {
+      "plugin": "AppLauncherPlugin",
+      "settings": {
+        "label": "Terminal",
+        "command": "gnome-terminal"
+      }
+    },
+    "7": {
+      "plugin": "WeatherPollenPlugin",
+      "settings": {}
+    }
+  },
+  "dials": {
+    "0": {
+      "plugin": "BrightnessPlugin",
+      "settings": {}
+    },
+    "1": {
+      "plugin": "TimerPlugin",
+      "settings": {}
+    },
+    "2": {
+      "plugin": "MicVolumePlugin",
+      "settings": {}
+    },
+    "3": {
+      "plugin": "VolumePlugin",
+      "settings": {}
+    }
+  }
+}

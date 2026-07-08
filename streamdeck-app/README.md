@@ -1,14 +1,26 @@
-# Stream Deck+ Linux Application
+# Stream Deck+ Linux Application & Configurator
 
-A Python-based application for controlling the Elgato Stream Deck+ on Linux (Ubuntu 24.04). This application provides a plugin system that allows you to create custom plugins for keys and encoders.
+A python-based web application and daemon for managing the Elgato Stream Deck+ on Linux (Ubuntu 24.04). Features a dynamic drag-and-drop web configuration dashboard, an extensible plugin framework, and thread-safe hardware drivers.
 
 ## Features
 
-- **Full Stream Deck+ Support**: Works with all 8 LCD keys and 4 touch-sensitive encoders
-- **Plugin System**: Create custom plugins by extending a simple base class
-- **Encoder Support**: Handle rotary encoder events (rotate, press)
-- **Dynamic Updates**: Plugins can update their display in real-time
-- **Easy Development**: Hot-reload plugins during development
+- **Stunning Web UI**: Drag-and-drop plugins directly onto a visual Stream Deck+ layout (8 keys, LCD touchscreen, 4 dials).
+- **Extensible Plugin Framework**: Easily build custom controls for keys or dials/screen zones.
+- **Out-of-the-box Controls**:
+  - **Clock & Date**: Time display with press-to-toggle date view.
+  - **App Launcher**: Starts customizable OS application commands when pressed.
+  - **Custom Hotkeys**: Simulates key combination events (via `xdotool`).
+  - **Brightness Dial**: Adjusts screen brightness (tap zone to toggle display).
+  - **Countdown Timer**: Twist knob to set, press/tap to start/stop, hold to reset, plays sound on completion.
+  - **Volume & Mic Control**: Adjusts system output/capture volume and handles mute.
+  - **Weather & Pollen**: Shows current local temperature, weather condition (Sun/Rain/Snow/Storm), and AQI/pollen levels using free Open-Meteo APIs (auto-geolocates via public IP; no key needed). Press button or tap screen to toggle.
+  - **System Monitors**: Live metric widgets supporting both buttons (keys) and dials/LCD segments:
+    - **CPU Usage**: Live CPU utilization percentage.
+    - **CPU Temp**: Live CPU core temperature (supports AMD/Intel auto-discovery).
+    - **Memory Usage**: Live RAM consumption.
+    - **GPU VRAM**: Live GPU VRAM memory allocation (supports AMD/Nvidia).
+    - **GPU Temp**: Live GPU core temperature (supports AMD/Nvidia).
+- **Thread-safe Daemon Wrapper**: Prevents USB endpoint collisions and hardware freezes using sequential hardware locks.
 
 ## Requirements
 
@@ -22,16 +34,10 @@ A Python-based application for controlling the Elgato Stream Deck+ on Linux (Ubu
 
 ```bash
 sudo apt-get update
-sudo apt-get install -y libusb-1.0-0-dev libhidapi-libusb0 libxcb-xinerama0 libxkbcommon-x11-0 libegl1 libopengl0
+sudo apt-get install -y libusb-1.0-0-dev libhidapi-libusb0 libxcb-xinerama0 libxkbcommon-x11-0 xdotool
 ```
 
-### 2. Install Python Dependencies
-
-```bash
-pip3 install streamdeck Pillow PyQt6
-```
-
-### 3. Set Up UDEV Rules (Required for USB Access)
+### 2. Set Up UDEV Rules (Allow USB Access)
 
 Create a udev rule to allow non-root access to the Stream Deck:
 
@@ -48,124 +54,102 @@ sudo udevadm control --reload-rules
 sudo udevadm trigger
 ```
 
+---
+
 ## Project Structure
 
 ```
 streamdeck-app/
-├── main.py              # Main application entry point
-├── plugin_api.py        # Base plugin class (extend this for new plugins)
-├── plugin_manager.py    # Plugin discovery and lifecycle management
-├── plugins/             # Directory for your custom plugins
-│   ├── __init__.py
-│   ├── clock_plugin.py  # Example: Clock display plugin
-│   └── volume_plugin.py # Example: Volume control plugin
+├── app.py                  # Main entry point: FastAPI Server + Hardware Daemon
+├── plugin_base.py          # Base plugin classes (KeyPlugin, DialPlugin)
+├── plugins_config.json     # Saved key and dial configuration mapping
+├── plugins/                # Discovered plugin files directory
+│   ├── clock.py
+│   ├── app_launcher.py
+│   ├── hotkey.py
+│   ├── brightness.py
+│   ├── timer.py
+│   ├── volume.py
+│   ├── mic.py
+│   ├── weather.py
+│   ├── cpu_usage.py
+│   ├── cpu_temp.py
+│   ├── mem_usage.py
+│   ├── gpu_vram.py
+│   └── gpu_temp.py
+├── web/                    # Configurator Frontend
+│   ├── index.html
+│   ├── index.css
+│   └── index.js
 └── README.md
 ```
 
+---
+
 ## Usage
 
-### Running the Application
+### Running the Configurator App
 
+Using `uv` (recommended):
 ```bash
-cd streamdeck-app
-python3 main.py
+uv run app.py
 ```
 
-**Note**: You may need to run with `sudo` if udev rules aren't set up correctly, but it's recommended to set up udev rules instead.
+Using standard Python:
+```bash
+python3 app.py
+```
 
-### Creating a New Plugin
+Once started, open **`http://localhost:8000`** in your browser to access the configuration dashboard.
 
-1. Create a new Python file in the `plugins/` directory
-2. Extend the `BasePlugin` class from `plugin_api`
-3. Implement at minimum the `get_image()` method
+---
 
-#### Example Plugin Template
+## Creating a New Plugin
 
+Create a new Python file in the `plugins/` directory and extend either `KeyPlugin` or `DialPlugin` from `plugin_base`.
+
+### Key Plugin Example
 ```python
-from plugin_api import BasePlugin
+import io
 from PIL import Image, ImageDraw
+from plugin_base import KeyPlugin
 
-class MyPlugin(BasePlugin):
-    name = "My Plugin"
-    version = "1.0.0"
+class MyButtonPlugin(KeyPlugin):
+    name = "My Button"
+    description = "A custom description"
     author = "Your Name"
-    description = "Description of what your plugin does"
+    version = "1.0.0"
     
-    def get_image(self) -> Image.Image:
-        """Generate the image to display on the key."""
-        image = Image.new('RGB', (72, 72), (0, 0, 0))
-        draw = ImageDraw.Draw(image)
-        draw.text((10, 30), "Hello!", fill=(255, 255, 255))
-        return image
-    
-    def on_press(self) -> None:
-        """Called when the key is pressed."""
-        print("Key pressed!")
-    
-    def on_encoder_rotate(self, ticks: int, pressed: bool) -> None:
-        """Called when encoder is rotated (for Stream Deck+)."""
-        print(f"Encoder rotated by {ticks} ticks")
+    def get_image(self, state: str) -> bytes:
+        # Generate a 120x120 JPEG
+        img = Image.new("RGB", (120, 120), color=(20, 30, 40))
+        draw = ImageDraw.Draw(img)
+        draw.text((10, 50), "Hello", fill=(255, 255, 255))
+        
+        buf = io.BytesIO()
+        img.save(buf, format="JPEG", quality=95)
+        return buf.getvalue()
+        
+    def on_press(self):
+        print("Button pressed!")
 ```
 
-### Plugin API Reference
+### Dial Plugin Example
+```python
+from PIL import ImageDraw
+from plugin_base import DialPlugin
 
-#### BasePlugin Methods
-
-| Method | Description |
-|--------|-------------|
-| `get_image()` | Return a PIL Image (72x72 for keys) to display |
-| `on_press()` | Called when key/encoder is pressed |
-| `on_release()` | Called when key/encoder is released |
-| `on_encoder_rotate(ticks, pressed)` | Called when encoder rotates |
-| `on_context_change(context)` | Called when context/profile changes |
-| `cleanup()` | Called when plugin is unloaded |
-
-#### Plugin Metadata
-
-Set these class attributes in your plugin:
-
-- `name`: Display name of the plugin
-- `version`: Version string
-- `author`: Author name
-- `description`: Brief description
-
-## Included Example Plugins
-
-### Clock Plugin (`clock_plugin.py`)
-- Displays current time on a key
-- Press to toggle between time and date display
-
-### Volume Plugin (`volume_plugin.py`)
-- Shows current system volume level
-- Rotate encoder to adjust volume (Stream Deck+)
-- Press encoder to mute/unmute
-- Requires `pactl` or `amixer` (PulseAudio/ALSA)
-
-## Troubleshooting
-
-### "No Stream Deck devices found"
-1. Ensure the device is plugged in
-2. Check udev rules are set up correctly
-3. Try running with `sudo` temporarily to test
-
-### Permission Denied Errors
-Set up the udev rules as described in the Installation section.
-
-### Module Import Errors
-Ensure you're running from the `streamdeck-app` directory:
-```bash
-cd streamdeck-app
-python3 main.py
+class MyDialPlugin(DialPlugin):
+    name = "My Dial"
+    description = "Knob rotary control"
+    author = "Your Name"
+    version = "1.0.0"
+    
+    def draw_segment(self, draw: ImageDraw.ImageDraw, width: int, height: int) -> None:
+        # Draw on the 200x100 touchscreen segment
+        draw.rectangle([0, 0, width, height], fill=(10, 10, 10))
+        draw.text((15, 40), "My Dial Control", fill=(255, 255, 255))
+        
+    def on_rotate(self, ticks: int, deck):
+        print(f"Rotated by {ticks}")
 ```
-
-## Architecture
-
-The application consists of three main components:
-
-1. **Main Application** (`main.py`): Handles device connection, event loop, and plugin assignment
-2. **Plugin Manager** (`plugin_manager.py`): Discovers, loads, and manages plugin lifecycle
-3. **Plugin API** (`plugin_api.py`): Defines the interface that all plugins must implement
-
-## License
-
-MIT License - Feel free to use and modify for your own projects!
