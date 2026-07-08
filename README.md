@@ -7,13 +7,13 @@ A python-based web application and daemon for managing the Elgato Stream Deck+ o
 Below are screenshots of the drag-and-drop web configuration dashboard at various viewport sizes:
 
 ### Desktop View
-![Desktop View](screenshots/fullscreen.png)
+![Desktop View](streamdeck-app/screenshots/fullscreen.png)
 
 ### Tablet View
-![Tablet View](screenshots/tablet.png)
+![Tablet View](streamdeck-app/screenshots/tablet.png)
 
 ### Mobile View
-![Mobile View](screenshots/mobile.png)
+![Mobile View](streamdeck-app/screenshots/mobile.png)
 
 ## Features
 
