@@ -153,3 +153,43 @@ class MyDialPlugin(DialPlugin):
     def on_rotate(self, ticks: int, deck):
         print(f"Rotated by {ticks}")
 ```
+
+---
+
+## Running in Production (Systemd User Service)
+
+To run the application in the background and ensure it starts automatically when you log in, you can set it up as a **systemd User Service** (`systemctl --user`).
+
+This allows the daemon to inherit your user session details automatically (enabling sound alerts, application launchers, and window hotkeys to run cleanly).
+
+### Setup Instructions
+
+1. Copy the systemd service unit file to your user systemd configuration directory:
+   ```bash
+   mkdir -p ~/.config/systemd/user/
+   cp /home/<username>/Apps/StreamDeckPlugins-Ubuntu/streamdeck-app/streamdeck.service ~/.config/systemd/user/
+   ```
+   *(Note: Ensure you update `/home/<username>/...` in `streamdeck.service` to reflect your actual user home path and username).*
+
+2. Reload the systemd user daemon:
+   ```bash
+   systemctl --user daemon-reload
+   ```
+
+3. Enable the service to run on login:
+   ```bash
+   systemctl --user enable streamdeck.service
+   ```
+
+4. Start the service:
+   ```bash
+   systemctl --user start streamdeck.service
+   ```
+
+### Managing the Service
+
+- **Check status**: `systemctl --user status streamdeck.service`
+- **View live logs**: `journalctl --user -u streamdeck.service -f`
+- **Stop**: `systemctl --user stop streamdeck.service`
+- **Restart (after adding new plugins)**: `systemctl --user restart streamdeck.service`
+
