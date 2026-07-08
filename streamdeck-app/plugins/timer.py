@@ -1,3 +1,4 @@
+import sys
 import time
 import subprocess
 import threading
@@ -43,7 +44,7 @@ class TimerPlugin(DialPlugin):
         self.seconds = 0
         self.total_seconds = 0
         self.state = "IDLE"  # IDLE, SET, RUNNING, PAUSED, DONE
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()
         self.thread = None
         self.redraw_callback = None
         self.press_time = 0.0
@@ -62,7 +63,7 @@ class TimerPlugin(DialPlugin):
         except Exception:
             font_title = font_val = font_small = ImageFont.load_default()
             
-        draw.text((15, 8), "TIMER", fill=(150, 150, 150), font=font_title)
+        draw.text((16, 8), "TIMER", fill=(150, 150, 150), font=font_title)
         
         with self.lock:
             secs = self.seconds
@@ -77,7 +78,10 @@ class TimerPlugin(DialPlugin):
             "DONE":    ("✓DONE", (255,  60,  60)),
         }
         badge_text, badge_color = badge_map.get(state, ("?", (80, 80, 80)))
-        draw.text((width - 65, 8), badge_text, fill=badge_color, font=font_title)
+        bbox = draw.textbbox((0, 0), badge_text, font=font_title)
+        tw = bbox[2] - bbox[0]
+        badge_x = width - tw - 20
+        draw.text((badge_x, 8), badge_text, fill=badge_color, font=font_title)
         
         # Format time
         h = secs // 3600
@@ -149,8 +153,9 @@ class TimerPlugin(DialPlugin):
             elif self.state == "RUNNING":
                 self.state = "PAUSED"
             elif self.state == "DONE":
-                self.reset()
-                return
+                self.state = "IDLE"
+                self.seconds = 0
+                self.total_seconds = 0
                 
         if self.redraw_callback:
             self.redraw_callback()

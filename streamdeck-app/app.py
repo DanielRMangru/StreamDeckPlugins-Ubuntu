@@ -55,18 +55,31 @@ class ThreadSafeDeck:
     def __init__(self, raw_deck, lock):
         self._deck = raw_deck
         self._lock = lock
+        self._broken = False
 
     def set_brightness(self, percent):
         with self._lock:
-            self._deck.set_brightness(percent)
+            try:
+                self._deck.set_brightness(percent)
+            except Exception as e:
+                self._broken = True
+                raise e
 
     def set_key_image(self, key, image):
         with self._lock:
-            self._deck.set_key_image(key, image)
+            try:
+                self._deck.set_key_image(key, image)
+            except Exception as e:
+                self._broken = True
+                raise e
 
     def set_touchscreen_image(self, image, x_pos=0, y_pos=0, width=0, height=0):
         with self._lock:
-            self._deck.set_touchscreen_image(image, x_pos, y_pos, width, height)
+            try:
+                self._deck.set_touchscreen_image(image, x_pos, y_pos, width, height)
+            except Exception as e:
+                self._broken = True
+                raise e
 
     def reset(self):
         with self._lock:
@@ -83,7 +96,7 @@ class ThreadSafeDeck:
                 pass
 
     def is_open(self):
-        return self._deck.is_open()
+        return self._deck.is_open() and not self._broken
 
     def deck_type(self):
         return self._deck.deck_type()
@@ -293,22 +306,23 @@ def apply_global_styles_context(global_styles):
         elif w == 200 and h == 100:
             # Dial segment rendering coordinate adjustment
             pos = global_styles.get("dial_label_position", "left")
-            if pos == "center":
-                if font:
-                    try:
-                        bbox = self.textbbox((0, 0), text, font=font)
-                        tw = bbox[2] - bbox[0]
-                        x = (w - tw) // 2
-                    except:
-                        pass
-            elif pos == "right":
-                if font:
-                    try:
-                        bbox = self.textbbox((0, 0), text, font=font)
-                        tw = bbox[2] - bbox[0]
-                        x = w - tw - 15
-                    except:
-                        pass
+            if x == 15:
+                if pos == "center":
+                    if font:
+                        try:
+                            bbox = self.textbbox((0, 0), text, font=font)
+                            tw = bbox[2] - bbox[0]
+                            x = (w - tw) // 2
+                        except:
+                            pass
+                elif pos == "right":
+                    if font:
+                        try:
+                            bbox = self.textbbox((0, 0), text, font=font)
+                            tw = bbox[2] - bbox[0]
+                            x = w - tw - 15
+                        except:
+                            pass
                         
         xy = (x, y)
         return original_text(self, xy, text, fill, font, *args, **kwargs)
@@ -537,6 +551,9 @@ def apply_assignments(cfg):
 # ---------------------------------------------------------------------------
 
 def deck_key_callback(deck_device, key, pressed):
+    global deck
+    if deck is None:
+        return
     with state_lock:
         plugin = key_plugins.get(key)
         
@@ -551,14 +568,14 @@ def deck_key_callback(deck_device, key, pressed):
                 # Update button visuals immediately to PRESSED state
                 with drawing_lock, apply_global_styles_context(global_styles):
                     img_bytes = plugin.get_image("PRESSED")
-                deck_device.set_key_image(key, img_bytes)
+                deck.set_key_image(key, img_bytes)
             else:
                 if hasattr(plugin, "on_release"):
                     plugin.on_release()
                 # Fall back to normal state
                 with drawing_lock, apply_global_styles_context(global_styles):
                     img_bytes = plugin.get_image("RELEASED")
-                deck_device.set_key_image(key, img_bytes)
+                deck.set_key_image(key, img_bytes)
                 # Let it settle back to IDLE
                 def restore():
                     time.sleep(0.4)
@@ -569,7 +586,9 @@ def deck_key_callback(deck_device, key, pressed):
 
 
 def deck_dial_callback(deck_device, dial, pressed, rotation):
-    global last_click_time
+    global last_click_time, deck
+    if deck is None:
+        return
     with state_lock:
         plugin = dial_plugins.get(dial)
         
@@ -578,12 +597,12 @@ def deck_dial_callback(deck_device, dial, pressed, rotation):
         
     try:
         if rotation != 0:
-            plugin.on_rotate(rotation, deck_device)
+            plugin.on_rotate(rotation, deck)
             update_lcd_strip()
         else:
             now = time.time()
             if (now - last_click_time.get(dial, 0)) > DEBOUNCE_COOLDOWN:
-                plugin.on_click(pressed, deck_device)
+                plugin.on_click(pressed, deck)
                 last_click_time[dial] = now
                 update_lcd_strip()
     except Exception as e:
@@ -593,7 +612,9 @@ def deck_dial_callback(deck_device, dial, pressed, rotation):
 last_page_switch_time = 0.0
 
 def deck_touchscreen_callback(deck_device, event_type, value):
-    global last_click_time, last_page_switch_time
+    global last_click_time, last_page_switch_time, deck
+    if deck is None:
+        return
     
     # Intercept drag event for horizontal swipe page switching
     evt_name = getattr(event_type, "name", "")
@@ -638,7 +659,7 @@ def deck_touchscreen_callback(deck_device, event_type, value):
     try:
         now = time.time()
         if (now - last_click_time.get(dial, 0)) > DEBOUNCE_COOLDOWN:
-            plugin.on_touch(event_type, value, deck_device)
+            plugin.on_touch(event_type, value, deck)
             last_click_time[dial] = now
             update_lcd_strip()
     except Exception as e:
